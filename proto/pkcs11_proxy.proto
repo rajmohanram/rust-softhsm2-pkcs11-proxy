@@ -1,0 +1,362 @@
+syntax = "proto3";
+
+package pkcs11_proxy;
+
+// ---------------------------------------------------------------------------
+// Deep-serialized mechanism parameter messages
+// ---------------------------------------------------------------------------
+
+message GcmParams {
+  bytes  iv      = 1;
+  uint32 iv_bits = 2;
+  bytes  aad     = 3;
+  uint32 tag_bits = 4;
+}
+
+message RsaOaepParams {
+  uint64 hash_alg    = 1;  // CKM_* hash mechanism
+  uint64 mgf         = 2;  // CKG_MGF1_*
+  uint64 source_type = 3;  // CKZ_DATA_SPECIFIED
+  bytes  source_data = 4;  // optional label / source data
+}
+
+message RsaPssParams {
+  uint64 hash_alg = 1;  // CKM_* hash mechanism
+  uint64 mgf      = 2;  // CKG_MGF1_*
+  uint64 salt_len = 3;
+}
+
+// ---------------------------------------------------------------------------
+// Mechanism (type + exactly one parameter variant)
+// ---------------------------------------------------------------------------
+
+message Mechanism {
+  uint64 mechanism_type = 1;  // CKM_* value
+
+  oneof params {
+    GcmParams      gcm       = 2;
+    RsaOaepParams  rsa_oaep  = 3;
+    RsaPssParams   rsa_pss   = 4;
+    bytes          raw       = 5;  // fallback for mechanisms with opaque param blocks
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Attribute
+// ---------------------------------------------------------------------------
+
+message Attribute {
+  uint64 attr_type = 1;  // CKA_* value
+  bytes  value     = 2;
+}
+
+// ---------------------------------------------------------------------------
+// Info structures
+// ---------------------------------------------------------------------------
+
+message SlotInfo {
+  string slot_description   = 1;
+  string manufacturer_id    = 2;
+  uint64 flags              = 3;
+  uint32 hardware_version_major = 4;
+  uint32 hardware_version_minor = 5;
+  uint32 firmware_version_major = 6;
+  uint32 firmware_version_minor = 7;
+}
+
+message TokenInfo {
+  string label              = 1;
+  string manufacturer_id    = 2;
+  string model              = 3;
+  string serial_number      = 4;
+  uint64 flags              = 5;
+  uint64 max_session_count  = 6;
+  uint64 session_count      = 7;
+  uint64 max_rw_session_count = 8;
+  uint64 rw_session_count   = 9;
+  uint64 max_pin_len        = 10;
+  uint64 min_pin_len        = 11;
+  uint64 total_public_memory  = 12;
+  uint64 free_public_memory   = 13;
+  uint64 total_private_memory = 14;
+  uint64 free_private_memory  = 15;
+  uint32 hardware_version_major = 16;
+  uint32 hardware_version_minor = 17;
+  uint32 firmware_version_major = 18;
+  uint32 firmware_version_minor = 19;
+  string utc_time           = 20;
+}
+
+message MechanismInfo {
+  uint64 min_key_size = 1;
+  uint64 max_key_size = 2;
+  uint64 flags        = 3;
+}
+
+// ---------------------------------------------------------------------------
+// Per-call request / response messages
+// ---------------------------------------------------------------------------
+
+// C_Initialize / C_Finalize
+message InitializeRequest {}
+message InitializeResponse {
+  uint64 rv = 1;
+}
+
+message FinalizeRequest {}
+message FinalizeResponse {
+  uint64 rv = 1;
+}
+
+// C_GetSlotList
+message GetSlotListRequest {
+  bool token_present = 1;
+}
+message GetSlotListResponse {
+  uint64 rv             = 1;
+  repeated uint64 slot_ids = 2;
+}
+
+// C_GetSlotInfo
+message GetSlotInfoRequest {
+  uint64 slot_id = 1;
+}
+message GetSlotInfoResponse {
+  uint64   rv   = 1;
+  SlotInfo info = 2;
+}
+
+// C_GetTokenInfo
+message GetTokenInfoRequest {
+  uint64 slot_id = 1;
+}
+message GetTokenInfoResponse {
+  uint64    rv   = 1;
+  TokenInfo info = 2;
+}
+
+// C_GetMechanismList
+message GetMechanismListRequest {
+  uint64 slot_id = 1;
+}
+message GetMechanismListResponse {
+  uint64 rv                        = 1;
+  repeated uint64 mechanism_types  = 2;
+}
+
+// C_GetMechanismInfo
+message GetMechanismInfoRequest {
+  uint64 slot_id        = 1;
+  uint64 mechanism_type = 2;
+}
+message GetMechanismInfoResponse {
+  uint64        rv   = 1;
+  MechanismInfo info = 2;
+}
+
+// C_OpenSession
+message OpenSessionRequest {
+  uint64 slot_id = 1;
+  uint64 flags   = 2;
+}
+message OpenSessionResponse {
+  uint64 rv         = 1;
+  uint64 session_handle = 2;
+}
+
+// C_CloseSession
+message CloseSessionRequest {
+  uint64 session_handle = 1;
+}
+message CloseSessionResponse {
+  uint64 rv = 1;
+}
+
+// C_Login
+message LoginRequest {
+  uint64 session_handle = 1;
+  uint64 user_type      = 2;  // CKU_SO, CKU_USER, CKU_CONTEXT_SPECIFIC
+  bytes  pin            = 3;
+}
+message LoginResponse {
+  uint64 rv = 1;
+}
+
+// C_Logout
+message LogoutRequest {
+  uint64 session_handle = 1;
+}
+message LogoutResponse {
+  uint64 rv = 1;
+}
+
+// C_FindObjectsInit
+message FindObjectsInitRequest {
+  uint64              session_handle = 1;
+  repeated Attribute  template       = 2;
+}
+message FindObjectsInitResponse {
+  uint64 rv = 1;
+}
+
+// C_FindObjects
+message FindObjectsRequest {
+  uint64 session_handle     = 1;
+  uint32 max_object_count   = 2;
+}
+message FindObjectsResponse {
+  uint64          rv              = 1;
+  repeated uint64 object_handles  = 2;
+}
+
+// C_FindObjectsFinal
+message FindObjectsFinalRequest {
+  uint64 session_handle = 1;
+}
+message FindObjectsFinalResponse {
+  uint64 rv = 1;
+}
+
+// C_GetAttributeValue
+message GetAttributeValueRequest {
+  uint64              session_handle = 1;
+  uint64              object_handle  = 2;
+  repeated Attribute  template       = 3;  // attr_type filled in; value may be empty
+}
+message GetAttributeValueResponse {
+  uint64              rv       = 1;
+  repeated Attribute  template = 2;
+}
+
+// C_EncryptInit
+message EncryptInitRequest {
+  uint64    session_handle = 1;
+  Mechanism mechanism      = 2;
+  uint64    key_handle     = 3;
+}
+message EncryptInitResponse {
+  uint64 rv = 1;
+}
+
+// C_Encrypt
+message EncryptRequest {
+  uint64 session_handle = 1;
+  bytes  plaintext      = 2;
+}
+message EncryptResponse {
+  uint64 rv         = 1;
+  bytes  ciphertext = 2;
+}
+
+// C_DecryptInit
+message DecryptInitRequest {
+  uint64    session_handle = 1;
+  Mechanism mechanism      = 2;
+  uint64    key_handle     = 3;
+}
+message DecryptInitResponse {
+  uint64 rv = 1;
+}
+
+// C_Decrypt
+message DecryptRequest {
+  uint64 session_handle = 1;
+  bytes  ciphertext     = 2;
+}
+message DecryptResponse {
+  uint64 rv        = 1;
+  bytes  plaintext = 2;
+}
+
+// C_GenerateKey
+message GenerateKeyRequest {
+  uint64              session_handle = 1;
+  Mechanism           mechanism      = 2;
+  repeated Attribute  template       = 3;
+}
+message GenerateKeyResponse {
+  uint64 rv         = 1;
+  uint64 key_handle = 2;
+}
+
+// C_GenerateKeyPair
+message GenerateKeyPairRequest {
+  uint64              session_handle          = 1;
+  Mechanism           mechanism               = 2;
+  repeated Attribute  public_key_template     = 3;
+  repeated Attribute  private_key_template    = 4;
+}
+message GenerateKeyPairResponse {
+  uint64 rv                  = 1;
+  uint64 public_key_handle   = 2;
+  uint64 private_key_handle  = 3;
+}
+
+// C_GenerateRandom
+message GenerateRandomRequest {
+  uint64 session_handle = 1;
+  uint64 length         = 2;
+}
+
+message GenerateRandomResponse {
+  uint64 rv   = 1;
+  bytes  data = 2;
+}
+
+// ---------------------------------------------------------------------------
+// Top-level request / response envelopes
+// ---------------------------------------------------------------------------
+
+message Request {
+  oneof call {
+    InitializeRequest         initialize           = 1;
+    FinalizeRequest           finalize             = 2;
+    GetSlotListRequest        get_slot_list        = 3;
+    GetSlotInfoRequest        get_slot_info        = 4;
+    GetTokenInfoRequest       get_token_info       = 5;
+    GetMechanismListRequest   get_mechanism_list   = 6;
+    GetMechanismInfoRequest   get_mechanism_info   = 7;
+    OpenSessionRequest        open_session         = 8;
+    CloseSessionRequest       close_session        = 9;
+    LoginRequest              login                = 10;
+    LogoutRequest             logout               = 11;
+    FindObjectsInitRequest    find_objects_init    = 12;
+    FindObjectsRequest        find_objects         = 13;
+    FindObjectsFinalRequest   find_objects_final   = 14;
+    GetAttributeValueRequest  get_attribute_value  = 15;
+    EncryptInitRequest        encrypt_init         = 16;
+    EncryptRequest            encrypt              = 17;
+    DecryptInitRequest        decrypt_init         = 18;
+    DecryptRequest            decrypt              = 19;
+    GenerateKeyRequest        generate_key         = 20;
+    GenerateKeyPairRequest    generate_key_pair    = 21;
+    GenerateRandomRequest     generate_random      = 22;
+  }
+}
+
+message Response {
+  oneof call {
+    InitializeResponse         initialize           = 1;
+    FinalizeResponse           finalize             = 2;
+    GetSlotListResponse        get_slot_list        = 3;
+    GetSlotInfoResponse        get_slot_info        = 4;
+    GetTokenInfoResponse       get_token_info       = 5;
+    GetMechanismListResponse   get_mechanism_list   = 6;
+    GetMechanismInfoResponse   get_mechanism_info   = 7;
+    OpenSessionResponse        open_session         = 8;
+    CloseSessionResponse       close_session        = 9;
+    LoginResponse              login                = 10;
+    LogoutResponse             logout               = 11;
+    FindObjectsInitResponse    find_objects_init    = 12;
+    FindObjectsResponse        find_objects         = 13;
+    FindObjectsFinalResponse   find_objects_final   = 14;
+    GetAttributeValueResponse  get_attribute_value  = 15;
+    EncryptInitResponse        encrypt_init         = 16;
+    EncryptResponse            encrypt              = 17;
+    DecryptInitResponse        decrypt_init         = 18;
+    DecryptResponse            decrypt              = 19;
+    GenerateKeyResponse        generate_key         = 20;
+    GenerateKeyPairResponse    generate_key_pair    = 21;
+    GenerateRandomResponse     generate_random      = 22;
+  }
+}

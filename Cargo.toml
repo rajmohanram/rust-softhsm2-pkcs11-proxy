@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "pkcs11-common",
+    "pkcs11-proxy-client",
+    "pkcs11-proxyd",
+]
+resolver = "2"

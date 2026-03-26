@@ -1,0 +1,45 @@
+# Example: OpenBao auto-unseal via rust-pkcs11-proxy + SoftHSM2
+
+services:
+  softhsm-proxy:
+    image: ghcr.io/rajmohanram/softhsm2-pkcs11-proxy:latest
+    container_name: softhsm-proxy
+    hostname: softhsm-proxy
+    environment:
+      PKCS11_PROXY_TLS_PSK_IDENTITY: openbao
+      PKCS11_PROXY_TLS_PSK: 0123456789abcdef0123456789abcdef
+      PKCS11_PROXY_LOG_LEVEL: info
+    volumes:
+      - softhsm-tokens:/var/lib/softhsm/tokens
+    ports:
+      - "2345:2345"
+
+  openbao:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openbao
+    hostname: openbao
+    depends_on:
+      softhsm-proxy:
+        condition: service_started
+    restart: on-failure
+    user: root
+    cap_add:
+      - IPC_LOCK
+    ports:
+      - "8200:8200"
+    environment:
+      BAO_ADDR: http://127.0.0.1:8200
+      PKCS11_PROXY_SOCKET: tls://softhsm-proxy:2345
+      PKCS11_PROXY_TLS_PSK_IDENTITY: openbao
+      PKCS11_PROXY_TLS_PSK: 0123456789abcdef0123456789abcdef
+      PKCS11_PROXY_LOG_LEVEL: info
+    volumes:
+      - ./openbao-config:/openbao/config:ro
+      - openbao-data:/openbao/data
+    command: server
+
+volumes:
+  softhsm-tokens:
+  openbao-data:

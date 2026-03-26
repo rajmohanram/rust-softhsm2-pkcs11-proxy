@@ -1,0 +1,16 @@
+[package]
+name = "pkcs11-common"
+version = "0.1.0"
+edition = "2021"
+description = "Common types, protocol definitions, and TLS-PSK helpers for the Rust PKCS#11 proxy"
+
+[dependencies]
+prost = "0.13"
+openssl = { version = "0.10", features = ["vendored"] }
+hex = "0.4"
+thiserror = "2"
+tracing = "0.1"
+bytes = "1"
+
+[build-dependencies]
+prost-build = "0.13"
