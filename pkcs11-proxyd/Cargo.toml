@@ -1,0 +1,22 @@
+[package]
+name = "pkcs11-proxyd"
+version = "0.1.0"
+edition = "2021"
+description = "PKCS#11 proxy server daemon – accepts TLS-PSK connections and dispatches to a real PKCS#11 module"
+
+[[bin]]
+name = "pkcs11-proxyd"
+path = "src/main.rs"
+
+[dependencies]
+pkcs11-common = { path = "../pkcs11-common" }
+cryptoki-sys = "0.2"
+tokio = { version = "1", features = ["full"] }
+openssl = { version = "0.10", features = ["vendored"] }
+prost = "0.13"
+clap = { version = "4", features = ["derive", "env"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1"
+parking_lot = "0.12"
+libloading = "0.8"

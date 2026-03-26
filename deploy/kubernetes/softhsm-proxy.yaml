@@ -1,0 +1,84 @@
+# Sample: softhsm2-pkcs11-proxy StatefulSet + headless Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: softhsm-proxy
+  namespace: openbao
+  labels:
+    app: softhsm-proxy
+spec:
+  selector:
+    app: softhsm-proxy
+  ports:
+    - name: pkcs11
+      port: 2345
+      targetPort: 2345
+  clusterIP: None
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: softhsm-proxy
+  namespace: openbao
+  labels:
+    app: softhsm-proxy
+spec:
+  serviceName: softhsm-proxy
+  replicas: 1
+  selector:
+    matchLabels:
+      app: softhsm-proxy
+  template:
+    metadata:
+      labels:
+        app: softhsm-proxy
+    spec:
+      containers:
+        - name: softhsm-proxy
+          image: ghcr.io/rajmohanram/softhsm2-pkcs11-proxy:latest
+          ports:
+            - name: pkcs11
+              containerPort: 2345
+          env:
+            - name: PKCS11_PROXY_TLS_PSK_IDENTITY
+              valueFrom:
+                secretKeyRef:
+                  name: pkcs11-proxy-psk
+                  key: identity
+            - name: PKCS11_PROXY_TLS_PSK
+              valueFrom:
+                secretKeyRef:
+                  name: pkcs11-proxy-psk
+                  key: psk
+            - name: PKCS11_PROXY_LOG_LEVEL
+              value: info
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          volumeMounts:
+            - name: softhsm-tokens
+              mountPath: /var/lib/softhsm/tokens
+          readinessProbe:
+            tcpSocket:
+              port: 2345
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 2345
+            initialDelaySeconds: 10
+            periodSeconds: 30
+  volumeClaimTemplates:
+    - metadata:
+        name: softhsm-tokens
+      spec:
+        # Set to your cluster's storage class, or remove to use the default
+        # storageClassName: standard
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 1Gi
